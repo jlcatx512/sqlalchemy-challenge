@@ -1,7 +1,8 @@
 # Jadd Cheng
 # October 2, 2019
+# sqlalchemy-challenge
 
-# Import dependencies
+# Import dependencies.
 import numpy as np
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
@@ -16,27 +17,24 @@ from flask import Flask, jsonify
 #################################################
 engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 
-# reflect an existing database into a new model
+# Reflect database into a new model.
 Base = automap_base()
-# reflect the tables
+# Reflect the tables.
 Base.prepare(engine, reflect=True)
 
-# Save reference to the table
+# Save references to the table.
 Measurement = Base.classes.measurement
 Station = Base.classes.station
 
-# Create Flask app instance
+# Create Flask app instance.
 app = Flask(__name__)
-
-#################################################
-# Routes
-#################################################
 
 #################################################
 # Route 1 / - Home page.
 # Function: List all routes that are available.
 #################################################
 @app.route("/")
+# NB &lt and &gt characters for angle brackets.
 def home():
     return (
         f"<strong>Available Routes:</strong><br/>"
@@ -49,18 +47,22 @@ def home():
 
 #################################################
 # Route 2
-# Convert the query results to a Dictionary using date as the key and prcp as the value.
+# Convert the query results to a dictionary using date as the key and prcp as the value.
 # Return the JSON representation of your dictionary.
 #################################################
-
 @app.route("/api/v1.0/precipitation")
 def precipitation():
-    # Create our session (link) from Python to the DB
+    # Create session (link) from Python to the DB.
     session = Session(engine)
+
+    # Query date and prcp columns of Measurement table. Save to variable.
     results = session.query(Measurement.date, Measurement.prcp).all()
+
+    # Close session to DB.
     session.close()
 
-    # Create a dictionary from the row data and append to a list of all_prcp
+    # Create a list of dictionary objects from row data.
+
     all_prcp = []
     for date, prcp in results:
         prcp_dict = {}
@@ -75,33 +77,34 @@ def precipitation():
 #################################################
 @app.route("/api/v1.0/stations")
 def stations():
-    # Create session (link) from Python to the DB
+    # Create session (link) from Python to the DB.
     session = Session(engine)
 
-    # Query Return a list of all stations"""
-
+    # Query a list of all stations.
     results = session.query(Station.id, Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).all()
     
-    # Close session
+    # Close session to DB.
     session.close()
 
     # Convert results into DataFrame and then to JSON
     df_stations = pd.DataFrame(results)
     all_stations_json = df_stations.to_json(orient='records')
 
+    # Return jsonify-ed list of stations.
     return jsonify(all_stations_json)
 
 #################################################
 # Route 4
-# query for the dates and temperature observations from a year from the last data point.
+# Query for the dates and temperature observations from a year from the last data point.
 # Return a JSON list of Temperature Observations (tobs) for the previous year.
 #################################################
-
 @app.route("/api/v1.0/tobs")
 def tobs():
+
+    # Create session (link) from Python to the DB.
     session = Session(engine)
 
-    # Calculate date of last data point.
+    # Calculate date of last data point and convert to datetime object.
     last_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
     last_date = dt.datetime.strptime(last_date, '%Y-%m-%d').date()
 
@@ -110,6 +113,8 @@ def tobs():
 
     # Query for all temperature observations.
     results = session.query(Measurement.date, Measurement.tobs).filter(Measurement.date <=last_date, Measurement.date>=first_date).order_by(Measurement.date.desc()).all()
+
+    # Close session to DB.
     session.close()
 
     # Create DataFrame from session query.
@@ -124,7 +129,6 @@ def tobs():
 # Return a JSON list of the minimum temperature, the average temperature, and the max temperature for a given start or start-end range.
 # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than and equal to the start date.
 #################################################
-
 @app.route("/api/v1.0/<start>")
 def calc_temps(start):
 
@@ -135,8 +139,9 @@ def calc_temps(start):
     start = dt.datetime.strptime(start, '%Y-%m-%d').date()
 
     # Query for TMIN, TAVG, TMAX from start date and all following dates.
-    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
-        filter(Measurement.date >= start).all()
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).filter(Measurement.date >= start).all()
+
+    # Close session to DB.
     session.close()
 
     # Create dictionary object to pass to jsonify.
@@ -148,7 +153,7 @@ def calc_temps(start):
         temp_dict["TMAX"] = tmax
         temp_list.append(temp_dict)
         
-    print("Generating results ...")
+    # Return json list.
     return jsonify(temp_list)
 
 #################################################
@@ -168,7 +173,7 @@ def calc_temps2(start, end):
 
     # Close session.
     session.close()
-    
+
     # Create dictionary object to pass to jsonify.
     temp_list = []
     for tmin, tavg, tmax in results:
@@ -177,7 +182,8 @@ def calc_temps2(start, end):
         temp_dict["TAVG"] = tavg
         temp_dict["TMAX"] = tmax
         temp_list.append(temp_dict)
-
+    
+    # Return json list.
     return jsonify(temp_list)
 
 #################################################
