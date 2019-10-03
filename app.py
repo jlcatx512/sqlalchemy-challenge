@@ -120,15 +120,49 @@ def tobs():
 # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than and equal to the start date.
 # When given the start and the end date, calculate the TMIN, TAVG, and TMAX for dates between the start and end date inclusive.
 #################################################
+    # """TMIN, TAVG, and TMAX for a list of dates.
+    # Args:
+    #     start_date (string): A date string in the format %Y-%m-%d
+    #     end_date (string): A date string in the format %Y-%m-%d
+    # Returns:
+    #     TMIN, TAVE, and TMAX
+    # """
+
 @app.route("/api/v1.0/<start>")
-def start(start):
-    pass
+def calc_temps(start):
+    session = Session(engine)
+    start = dt.datetime.strptime(start, '%Y-%m-%d').date()
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).all()
+    session.close()
+    
+    # df = pd.DataFrame(results)
+    # df = df.to_json(orient='records')
+    
+    return jsonify(results)
 
-# Router 6
+# error
+# message = "Date wrong"
+# return message, 404
+
+#################################################
+# Route 6
+#################################################
 @app.route("/api/v1.0/<start>/<end>")
-def startend():
-    pass
+def calc_temps2(start, end):
+    session = Session(engine)
+    start = dt.datetime.strptime(start, '%Y-%m-%d').date()
+    end = dt.datetime.strptime(end, '%Y-%m-%d').date()
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).filter(Measurement.date <= end).all()
+    session.close()
+    results = list(results)    
+    return jsonify(results)
 
+# message = jsonify({"error": f"Character with real_name {real_name} not found."})
+#     return message, 404
+#################################################
 # app.run
+#################################################
 if __name__ == "__main__":
     app.run(debug=True)
