@@ -75,20 +75,20 @@ def precipitation():
 #################################################
 @app.route("/api/v1.0/stations")
 def stations():
-    # Create our session (link) from Python to the DB
+    # Create session (link) from Python to the DB
     session = Session(engine)
 
-    # """Return a list of all stations"""
+    # Query Return a list of all stations"""
 
     results = session.query(Station.id, Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).all()
-
+    
+    # Close session
     session.close()
 
+    # Convert results into DataFrame and then to JSON
     df_stations = pd.DataFrame(results)
     all_stations_json = df_stations.to_json(orient='records')
 
-    # Convert list of tuples into normal list
-    # all_stations = list(np.ravel(all_stations))
     return jsonify(all_stations_json)
 
 #################################################
@@ -101,10 +101,14 @@ def stations():
 def tobs():
     session = Session(engine)
 
+    # Calculate date of last data point.
     last_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
     last_date = dt.datetime.strptime(last_date, '%Y-%m-%d').date()
+
+    # Calculate date of previous year from last data point.
     first_date = last_date - dt.timedelta(days=365)
 
+    # Query for all temperature observations.
     results = session.query(Measurement.date, Measurement.tobs).filter(Measurement.date <=last_date, Measurement.date>=first_date).order_by(Measurement.date.desc()).all()
     session.close()
 
@@ -112,55 +116,70 @@ def tobs():
     df_tobs = pd.DataFrame(results)
     tobs_json = df_tobs.to_json(orient='records')
 
+    # Return jsonify object.
     return jsonify(tobs_json)
     
 #################################################
 # Route 5
 # Return a JSON list of the minimum temperature, the average temperature, and the max temperature for a given start or start-end range.
 # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than and equal to the start date.
-# When given the start and the end date, calculate the TMIN, TAVG, and TMAX for dates between the start and end date inclusive.
 #################################################
-    # """TMIN, TAVG, and TMAX for a list of dates.
-    # Args:
-    #     start_date (string): A date string in the format %Y-%m-%d
-    #     end_date (string): A date string in the format %Y-%m-%d
-    # Returns:
-    #     TMIN, TAVE, and TMAX
-    # """
 
 @app.route("/api/v1.0/<start>")
 def calc_temps(start):
+
+    # Create session object.
     session = Session(engine)
+
+    # Calculate and convert start date to datetime object.
     start = dt.datetime.strptime(start, '%Y-%m-%d').date()
+
+    # Query for TMIN, TAVG, TMAX from start date and all following dates.
     results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
         filter(Measurement.date >= start).all()
     session.close()
-    
-    # df = pd.DataFrame(results)
-    # df = df.to_json(orient='records')
-    
-    return jsonify(results)
 
-# error
-# message = "Date wrong"
-# return message, 404
+    # Create dictionary object to pass to jsonify.
+    temp_list = []
+    for tmin, tavg, tmax in results:
+        temp_dict = {}
+        temp_dict["TMIN"] = tmin
+        temp_dict["TAVG"] = tavg
+        temp_dict["TMAX"] = tmax
+        temp_list.append(temp_dict)
+        
+    print("Generating results ...")
+    return jsonify(temp_list)
 
 #################################################
 # Route 6
+# Return a JSON list of the minimum temperature, the average temperature, and the max temperature for a given start or start-end range.
+# When given the start and the end date, calculate the TMIN, TAVG, and TMAX for dates between the start and end date inclusive.
 #################################################
 @app.route("/api/v1.0/<start>/<end>")
 def calc_temps2(start, end):
     session = Session(engine)
     start = dt.datetime.strptime(start, '%Y-%m-%d').date()
     end = dt.datetime.strptime(end, '%Y-%m-%d').date()
+
+    # Query for TMIN, TAVG and TMAX for dates on and between start and end dates.
     results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
         filter(Measurement.date >= start).filter(Measurement.date <= end).all()
-    session.close()
-    results = list(results)    
-    return jsonify(results)
 
-# message = jsonify({"error": f"Character with real_name {real_name} not found."})
-#     return message, 404
+    # Close session.
+    session.close()
+    
+    # Create dictionary object to pass to jsonify.
+    temp_list = []
+    for tmin, tavg, tmax in results:
+        temp_dict = {}
+        temp_dict["TMIN"] = tmin
+        temp_dict["TAVG"] = tavg
+        temp_dict["TMAX"] = tmax
+        temp_list.append(temp_dict)
+
+    return jsonify(temp_list)
+
 #################################################
 # app.run
 #################################################
